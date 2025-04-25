@@ -1,0 +1,3 @@
+docker compose exec rabbitmq-node1 sh
+
+docker compose exec rabbitmq-node2 sh

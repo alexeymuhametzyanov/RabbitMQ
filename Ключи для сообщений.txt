@@ -1,0 +1,7 @@
+https://habr.com/ru/articles/490960/
+
+x-max-length: 1000000
+x-overflow: reject-publish
+
+x-dead-letter-exchange — задает exchange, в который направляются отвергнутые сообщения, которые не поставлены повторно в очередь
+x-dead-letter-routing-key — задает не обязательный ключ маршрутизации для отвергнутых сообщений

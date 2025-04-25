@@ -1,0 +1,4 @@
+mnesia
+/node_1/var_log/*.log
+/node_2/var_log/*.dump
+*.log
