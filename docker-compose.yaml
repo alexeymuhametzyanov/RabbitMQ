@@ -1,10 +1,15 @@
-services:     
+services:
     rabbitmq-node1:
         image: rabbitmq:4.0.9-management
         restart: no
         container_name: rabbitmq-1   
         #network_mode: host
         hostname: rabbitmq-1
+        healthcheck:
+            test: rabbitmq-diagnostics -q ping
+            interval: 15s
+            timeout: 30s
+            retries: 3
         ports:
           - "15674:15672"
           - "5674:5672"
@@ -24,12 +29,14 @@ services:
                 limits:
                     cpus: "1"
                     memory: 2048M
+        networks:
+            - my-net
       
     amqpproxy-node1:
         image: cloudamqp/amqproxy:v2.0.4
         depends_on:
           rabbitmq-node1:
-            condition: service_started
+            condition: service_healthy
         restart: no
         container_name: amqpproxy1
         hostname: amqpproxy-1
@@ -39,18 +46,19 @@ services:
            - LISTEN_PORT=5673
            - IDLE_CONNECTION_TIMEOUT=15
            - AMQP_URL=amqp://rabbitmq-1:5672
-           
+        networks:
+           - my-net
       
     haproxy:
-        image: haproxy:3.0.9-alpine
+        image: haproxy:3.1.7-bookworm
         depends_on:
            rabbitmq-node1:
-            condition: service_started
+            condition: service_healthy
           #rabbitmq-node2:
             #condition: service_started
         restart: no
         container_name: haproxy 
-        hostname: haproxy
+        #hostname: haproxy
         ports:
          - "80:80"
          - "443:443"
@@ -62,10 +70,9 @@ services:
           - TZ=Europe/Moscow
         volumes:
         - E:/Docker/RabbitMQ/ha_proxy/usr_local_etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-          #- ../ha_proxy/var_lib:/var/lib/haproxy:rw
-        # - E:/Docker/RabbitMQ/ha_proxy/etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-        # - E:/Docker/RabbitMQ/ha_proxy/var_run:/var/run/haproxy:rw
-         #- E:/Docker/RabbitMQ/ha_proxy/var_log:/var/lib/haproxy/dev/log:rw
-         #- ./cert.pem:/etc/ssl/certs/site.pem
+        networks:
+            - my-net
          
-         
+networks: 
+  my-net:
+    driver: bridge
