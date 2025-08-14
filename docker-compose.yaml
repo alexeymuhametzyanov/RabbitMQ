@@ -1,78 +1,110 @@
 services:
-    rabbitmq-node1:
-        image: rabbitmq:4.0.9-management
-        restart: no
-        container_name: rabbitmq-1   
-        #network_mode: host
-        hostname: rabbitmq-1
-        healthcheck:
-            test: rabbitmq-diagnostics -q ping
-            interval: 15s
-            timeout: 30s
-            retries: 3
-        ports:
-          - "15674:15672"
-          - "5674:5672"
-          - "5554:5552"
-          - "15694:15692"
-        environment:
+  rabbitmq-node-1:
+      image: rabbitmq:4.0.9-management
+      restart: no
+      container_name: rabbitmq-node-1   
+      #network_mode: host
+      hostname: rabbitmq-1
+      healthcheck:
+          test: rabbitmq-diagnostics -q ping
+          interval: 15s
+          timeout: 30s
+          retries: 3
+      ports:
+        - "15674:15672"
+        - "5674:5672"
+        - "5554:5552"
+        - "15694:15692"
+      environment:
+        - TZ=Europe/Moscow
+        - RABBITMQ_NODENAME=node-1@rabbitmq-1
+        - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+P 2000000 +t 9000000 +S 2:2 +MBas ageffcbf +MHas ageffcbf +MBlmbcs 512 +MHlmbcs 1024 +MMmcs 30 +stbt nnts +sbwt none +sbwtdcpu none +sbwtdio none +hmqd off_heap
+        #- RABBITMQ_DEFAULT_VHOST=/aml
+      volumes:
+        - ./node_1/etc:/etc/rabbitmq:ro
+        - ./node_1/var_log:/var/log/rabbitmq:rw
+        - ./node_1/var_lib:/var/lib/rabbitmq:rw
+      deploy:
+          resources:
+              limits:
+                  cpus: "1"
+                  memory: 2048M
+      networks:
+          - rabbit-back-net
+
+  rabbitmq-node-2:
+      image: rabbitmq:4.0.9-management
+      restart: no
+      container_name: rabbitmq-node-2   
+      #network_mode: host
+      hostname: rabbitmq-2
+      healthcheck:
+          test: rabbitmq-diagnostics -q ping
+          interval: 15s
+          timeout: 30s
+          retries: 3
+      ports:
+        - "15675:15672"
+        - "5675:5672"
+        - "5555:5552"
+        - "15695:15692"
+      environment:
+        - TZ=Europe/Moscow
+        - RABBITMQ_NODENAME=node-2@rabbitmq-2
+        - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+P 2000000 +t 9000000 +S 2:2 +MBas ageffcbf +MHas ageffcbf +MBlmbcs 512 +MHlmbcs 1024 +MMmcs 30 +stbt nnts +sbwt none +sbwtdcpu none +sbwtdio none +hmqd off_heap
+        #- RABBITMQ_DEFAULT_VHOST=/aml
+      volumes:
+        - ./node_2/etc:/etc/rabbitmq:ro
+        - ./node_2/var_log:/var/log/rabbitmq:rw
+        - ./node_2/var_lib:/var/lib/rabbitmq:rw
+      deploy:
+          resources:
+              limits:
+                  cpus: "1"
+                  memory: 2048M
+      networks:
+          - rabbit-back-net
+
+  amqpproxy-node1:
+      image: cloudamqp/amqproxy:v2.0.4
+      depends_on:
+        rabbitmq-node-1:
+          condition: service_healthy
+      restart: no
+      container_name: amqpproxy1
+      hostname: amqpproxy-1
+      #network_mode: host
+      environment:
           - TZ=Europe/Moscow
-          - RABBITMQ_NODENAME=node-1@rabbitmq-1
-          - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+P 2000000 +t 9000000 +S 2:2 +MBas ageffcbf +MHas ageffcbf +MBlmbcs 512 +MHlmbcs 1024 +MMmcs 30 +stbt nnts +sbwt none +sbwtdcpu none +sbwtdio none +hmqd off_heap
-          #- RABBITMQ_DEFAULT_VHOST=/aml
-        volumes:
-          - E:/Docker/RabbitMQ/node_1/etc:/etc/rabbitmq:rw
-          - E:/Docker/RabbitMQ/node_1/var_log:/var/log/rabbitmq:rw
-          - E:/Docker/RabbitMQ/node_1/var_lib:/var/lib/rabbitmq:rw
-        deploy:
-            resources:
-                limits:
-                    cpus: "1"
-                    memory: 2048M
-        networks:
-            - my-net
-      
-    amqpproxy-node1:
-        image: cloudamqp/amqproxy:v2.0.4
-        depends_on:
-          rabbitmq-node1:
+          - LISTEN_ADDRESS=0.0.0.0
+          - LISTEN_PORT=5673
+          - IDLE_CONNECTION_TIMEOUT=15
+          - AMQP_URL=amqp://rabbitmq-1:5672
+      networks:
+          - rabbit-back-net
+          
+  #Админка http://localhost:8404/stats  
+  haproxy:
+      image: haproxy:3.1.7-bookworm
+      depends_on:
+          rabbitmq-node-1:
             condition: service_healthy
-        restart: no
-        container_name: amqpproxy1
-        hostname: amqpproxy-1
-        #network_mode: host
-        environment:
-           - TZ=Europe/Moscow
-           - LISTEN_PORT=5673
-           - IDLE_CONNECTION_TIMEOUT=15
-           - AMQP_URL=amqp://rabbitmq-1:5672
-        networks:
-           - my-net
-      
-    haproxy:
-        image: haproxy:3.1.7-bookworm
-        depends_on:
-           rabbitmq-node1:
+          rabbitmq-node-2:
             condition: service_healthy
-          #rabbitmq-node2:
-            #condition: service_started
-        restart: no
-        container_name: haproxy 
-        #hostname: haproxy
-        ports:
-         - "80:80"
-         - "443:443"
-         - "5672:5672"
-         - "15672:15672"
-         - "8404:8404"
-         - "9090:9090"
-        environment:
-          - TZ=Europe/Moscow
-        volumes:
-        - E:/Docker/RabbitMQ/ha_proxy/usr_local_etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-        networks:
-            - my-net
+      restart: no
+      container_name: haproxy 
+      #hostname: haproxy
+      ports:
+        - "8404:8404"
+        - "5672:5672"
+        - "15672:15672"
+      environment:
+        - TZ=Europe/Moscow
+      volumes:
+        - ./ha_proxy/usr_local_etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      networks:
+        - rabbit-back-net
          
 networks: 
-  my-net:
+  rabbit-back-net:
     driver: bridge
