@@ -1,6 +1,6 @@
 services:
   rabbitmq-node-1:
-      image: rabbitmq:4.0.9-management
+      image: amd64/rabbitmq:4.0.9-management
       restart: no
       container_name: rabbitmq-node-1   
       #network_mode: host
@@ -27,13 +27,13 @@ services:
       deploy:
           resources:
               limits:
-                  cpus: "1"
-                  memory: 2048M
+                  cpus: "2"
+                  memory: 1536M
       networks:
           - rabbit-back-net
 
   rabbitmq-node-2:
-      image: rabbitmq:4.0.9-management
+      image: amd64/rabbitmq:4.0.9-management
       restart: no
       container_name: rabbitmq-node-2   
       #network_mode: host
@@ -60,20 +60,25 @@ services:
       deploy:
           resources:
               limits:
-                  cpus: "1"
-                  memory: 2048M
+                  cpus: "2"
+                  memory: 1536M
       networks:
           - rabbit-back-net
 
+  #Проверка состояния http://localhost:15677/healthz
+  #Метрики http://localhost:15677/metrics
   amqpproxy-node1:
       image: cloudamqp/amqproxy:v2.0.4
       depends_on:
         rabbitmq-node-1:
           condition: service_healthy
       restart: no
-      container_name: amqpproxy1
+      container_name: amqpproxy-1
       hostname: amqpproxy-1
       #network_mode: host
+      ports:
+        - "15677:15673"
+        - "5677:5673"
       environment:
           - TZ=Europe/Moscow
           - LISTEN_ADDRESS=0.0.0.0
@@ -82,10 +87,33 @@ services:
           - AMQP_URL=amqp://rabbitmq-1:5672
       networks:
           - rabbit-back-net
+
+  #Проверка состояния http://localhost:15678/healthz
+  #Метрики http://localhost:15677/metrics
+  amqpproxy-node2:
+      image: cloudamqp/amqproxy:v2.0.4
+      depends_on:
+        rabbitmq-node-2:
+          condition: service_healthy
+      restart: no
+      container_name: amqpproxy-2
+      hostname: amqpproxy-2
+      #network_mode: host
+      ports:
+        - "15678:15673"
+        - "5678:5672"
+      environment:
+          - TZ=Europe/Moscow
+          - LISTEN_ADDRESS=0.0.0.0
+          - LISTEN_PORT=5672
+          - IDLE_CONNECTION_TIMEOUT=15
+          - AMQP_URL=amqp://rabbitmq-2:5672
+      networks:
+          - rabbit-back-net
           
   #Админка http://localhost:8404/stats  
   haproxy:
-      image: haproxy:3.1.7-bookworm
+      image: amd64/haproxy:3.1.8-bookworm
       depends_on:
           rabbitmq-node-1:
             condition: service_healthy
